@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mosaic — Image Layout Tool</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e0e;--bg2:#1a1a1a;--bg3:#242424;
+  --text:#e8e8e8;--text2:#999;--text3:#555;
+  --border:#2a2a2a;--border2:#383838;
+  --accent:#c8a96e;--accent-text:#000;
+  --radius:6px;--radius-lg:10px;
+}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;min-height:100vh}
+button{font-family:inherit;font-size:12px;padding:4px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .12s}
+button:hover{border-color:#555;color:var(--text)}
+button:disabled{opacity:0.35;cursor:not-allowed}
+select{font-family:inherit;font-size:12px;padding:3px 6px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer}
+input[type=range]{accent-color:var(--accent);cursor:pointer}
+
+/* LAYOUT */
+#app{max-width:960px;margin:0 auto;padding:16px 20px 40px}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border);margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.logo{font-size:16px;font-weight:500;letter-spacing:-0.02em;color:var(--text)}
+.logo span{color:var(--text3);font-weight:400;font-size:12px;margin-left:6px}
+.ctrls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ctrl{display:flex;align-items:center;gap:5px}
+.ctrl label{font-size:11px;color:var(--text2);white-space:nowrap}
+.ctrl span{font-size:11px;color:var(--text3);min-width:20px;text-align:right}
+.btn-accent{background:var(--accent);border-color:var(--accent);color:var(--accent-text);font-weight:500}
+.btn-accent:hover{opacity:0.88}
+.draw-btn{font-size:11px}
+.draw-btn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
+
+/* BG PANEL */
+.bgpanel{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:12px;flex-wrap:wrap;border:0.5px solid var(--border)}
+.bgpanel > label{font-size:11px;color:var(--text2);white-space:nowrap}
+.modetabs{display:flex;gap:3px}
+.mtab{padding:3px 8px;font-size:10px}
+.mtab.on{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
+.bgsep{width:0.5px;height:18px;background:var(--border);margin:0 4px}
+.graddir{display:flex;gap:3px}
+.dirtab{padding:3px 7px;font-size:10px}
+.dirtab.on{background:rgba(200,169,110,.18);border-color:var(--accent);color:var(--accent)}
+.clrswatch{width:22px;height:22px;border-radius:4px;border:0.5px solid var(--border2);cursor:pointer;position:relative;overflow:hidden;flex-shrink:0}
+.clrswatch input[type=color]{position:absolute;inset:-4px;width:calc(100%+8px);height:calc(100%+8px);opacity:0;cursor:pointer}
+.bgimgbtn{padding:3px 9px;font-size:10px}
+
+/* STAGE */
+.stage{position:relative;width:100%;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px;user-select:none}
+.stage-bg{position:absolute;inset:0;z-index:0}
+.draw-overlay{position:absolute;inset:0;z-index:10;display:none;cursor:crosshair}
+.draw-overlay.active{display:block}
+.draw-preview{position:absolute;border:2px dashed var(--accent);pointer-events:none;display:none;z-index:11}
+.draw-hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:var(--accent);font-size:11px;padding:5px 12px;border-radius:20px;pointer-events:none;white-space:nowrap;z-index:12;display:none}
+.artboard{position:absolute;z-index:2;overflow:hidden}
+.artboard-inner{position:relative;width:100%;height:100%}
+.cell{position:absolute;overflow:hidden;z-index:1}
+.cell img{width:100%;height:100%;object-fit:cover;display:block}
+.dz{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;border:1.5px dashed #333;border-radius:var(--radius);z-index:2;background:rgba(0,0,0,0.35);transition:border-color .15s}
+.dz:hover,.dz.over{border-color:var(--accent)}
+.dz p{font-size:14px;color:#aaa}
+.dz small{font-size:11px;color:#555}
+.ratio-label{position:absolute;bottom:8px;right:10px;font-size:10px;color:rgba(255,255,255,0.3);z-index:5;pointer-events:none}
+
+/* TRAY */
+.tray-wrap{margin-bottom:8px}
+.tray{display:flex;gap:6px;overflow-x:auto;align-items:flex-start;padding:2px 0 6px}
+.tray::-webkit-scrollbar{height:3px}
+.tray::-webkit-scrollbar-track{background:transparent}
+.tray::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.th{position:relative;width:70px;height:50px;border-radius:5px;overflow:hidden;border:1.5px solid var(--border2);flex-shrink:0;transition:border-color .12s}
+.th.main{border-color:var(--accent)}
+.th img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.fdot{position:absolute;width:7px;height:7px;border-radius:50%;background:var(--accent);border:1.5px solid #000;transform:translate(-50%,-50%);pointer-events:none}
+.ibtn{position:absolute;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer;line-height:1;padding:0;transition:all .12s;font-size:9px}
+.xbtn{top:3px;right:3px;width:15px;height:15px;border-radius:3px;background:rgba(0,0,0,.72);color:#888}
+.xbtn:hover{background:rgba(200,50,50,.9);color:#fff}
+.mbtn{bottom:3px;left:3px;width:18px;height:18px;border-radius:3px;background:rgba(0,0,0,.65);color:#666;border:0.5px solid rgba(255,255,255,.08)}
+.mbtn.on{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+.fbtn{bottom:3px;right:3px;width:18px;height:18px;border-radius:3px;background:rgba(0,0,0,.65);color:#666;border:0.5px solid rgba(255,255,255,.08)}
+.fbtn:hover{color:var(--accent)}
+.tadd{flex-shrink:0;width:70px;height:50px;border-radius:5px;border:1.5px dashed var(--border2);background:transparent;color:var(--text3);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s}
+.tadd:hover{border-color:var(--border2);color:var(--text2)}
+.hint{font-size:11px;color:var(--text3);text-align:center;padding:2px 0 0}
+
+/* MODAL */
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:300;align-items:center;justify-content:center}
+.modal.open{display:flex}
+.mbox{background:var(--bg2);border-radius:var(--radius-lg);border:0.5px solid var(--border2);padding:18px;width:90%;max-width:400px}
+.mhint{font-size:12px;color:var(--text2);margin-bottom:12px;text-align:center}
+.mimgwrap{position:relative;cursor:crosshair;border-radius:var(--radius);overflow:hidden;background:#000;text-align:center}
+.mimgwrap img{max-width:100%;max-height:280px;display:inline-block;vertical-align:bottom}
+.mfdot{position:absolute;width:14px;height:14px;border-radius:50%;background:rgba(200,169,110,.3);border:2px solid var(--accent);transform:translate(-50%,-50%);pointer-events:none;display:none}
+.mfoot{margin-top:12px;text-align:right;display:flex;gap:8px;justify-content:flex-end}
+.expbox{background:var(--bg2);border-radius:var(--radius-lg);border:0.5px solid var(--border2);padding:18px;width:90%;max-width:520px}
+.expbox .exptitle{font-size:13px;font-weight:500;margin-bottom:4px}
+.expbox .expsub{font-size:11px;color:var(--text2);margin-bottom:12px}
+.expbox img{max-width:100%;border-radius:var(--radius);display:block;margin-bottom:12px;border:0.5px solid var(--border)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hdr">
+    <div class="logo">Mosaic <span>image layout tool</span></div>
+    <div class="ctrls">
+      <div class="ctrl">
+        <label>Size</label>
+        <select id="rsel" onchange="onRatio(this.value)">
+          <option value="16:9">16 : 9</option>
+          <option value="4:3">4 : 3</option>
+          <option value="1:1">1 : 1</option>
+          <option value="9:16">9 : 16</option>
+          <option value="3:2">3 : 2</option>
+          <option value="A4">A4</option>
+        </select>
+      </div>
+      <button class="draw-btn" id="draw-btn" onclick="toggleDrawMode()">✏ Draw canvas</button>
+      <div class="ctrl">
+        <label>Gap</label>
+        <input type="range" min="0" max="32" value="12" step="1" id="gsl" style="width:60px" oninput="onGap(this.value)">
+        <span id="gv">12</span>
+      </div>
+      <div class="ctrl">
+        <label>Corners</label>
+        <input type="range" min="0" max="80" value="0" step="1" id="csl" style="width:60px" oninput="onCorner(this.value)">
+        <span id="cv">0</span>
+      </div>
+      <button id="sbtn" disabled onclick="doShuffle()">↺ Shuffle</button>
+      <button id="ebtn" class="btn-accent" disabled onclick="doExport()">↓ Export PNG</button>
+    </div>
+  </div>
+
+  <div class="bgpanel">
+    <label>Background</label>
+    <div class="modetabs">
+      <button class="mtab on" onclick="setBgMode('solid')">Solid</button>
+      <button class="mtab" onclick="setBgMode('gradient')">Gradient</button>
+      <button class="mtab" onclick="setBgMode('image')">Image</button>
+    </div>
+    <div class="bgsep"></div>
+    <div id="solid-opts" style="display:flex;align-items:center;gap:6px">
+      <div class="clrswatch" id="sw-solid" style="background:#111" title="Click to pick color">
+        <input type="color" id="solid-clr" value="#111111" oninput="onSolidClr(this.value)">
+      </div>
+    </div>
+    <div id="grad-opts" style="display:none;align-items:center;gap:6px">
+      <div class="clrswatch" id="sw-a" style="background:#0a0a0a">
+        <input type="color" id="grad-a" value="#0a0a0a" oninput="onGradClr()">
+      </div>
+      <div class="clrswatch" id="sw-b" style="background:#3a2a1a">
+        <input type="color" id="grad-b" value="#3a2a1a" oninput="onGradClr()">
+      </div>
+      <div class="graddir">
+        <button class="dirtab on" id="dir-v" onclick="setGradDir('v')">↕</button>
+        <button class="dirtab" id="dir-h" onclick="setGradDir('h')">↔</button>
+      </div>
+    </div>
+    <div id="img-opts" style="display:none;align-items:center;gap:6px">
+      <button class="bgimgbtn" onclick="trigBgImg()">↑ Upload image</button>
+      <span id="bgimgname" style="font-size:10px;color:var(--text3);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">No image</span>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="stage-bg" id="stage-bg"></div>
+    <div class="draw-overlay" id="draw-overlay"
+      onmousedown="drawStart(event)" onmousemove="drawMove(event)" onmouseup="drawEnd(event)"
+      ontouchstart="drawStart(event)" ontouchmove="drawMove(event)" ontouchend="drawEnd(event)">
+    </div>
+    <div class="draw-preview" id="draw-preview"></div>
+    <div class="draw-hint" id="draw-hint">Click and drag to define your canvas region</div>
+    <div class="artboard" id="artboard">
+      <div class="artboard-inner" id="artboard-inner">
+        <div class="dz" id="dz" onclick="trigUp()" ondragover="dzOv(event)" ondragleave="dzLv(event)" ondrop="dzDp(event)">
+          <p>Drop images here</p>
+          <small>or click to browse · supports any image format</small>
+        </div>
+      </div>
+    </div>
+    <div class="ratio-label" id="ratio-label"></div>
+  </div>
+
+  <div class="tray-wrap">
+    <div id="tray" class="tray" style="display:none"></div>
+    <div id="hint" class="hint" style="display:none">★ bigger cell &nbsp;·&nbsp; ⊕ set focal point &nbsp;·&nbsp; × remove &nbsp;·&nbsp; drop more images onto canvas</div>
+  </div>
+
+  <!-- Focal point modal -->
+  <div class="modal" id="fmodal">
+    <div class="mbox">
+      <div class="mhint">Click on the image to pin the focal point — crops will stay anchored here</div>
+      <div class="mimgwrap" id="mimgwrap" onclick="onFC(event)">
+        <img id="mimg" src="" alt="">
+        <div class="mfdot" id="mfdot"></div>
+      </div>
+      <div class="mfoot">
+        <button onclick="clearFocal()">Clear</button>
+        <button onclick="closeMod()" style="background:var(--accent);border-color:var(--accent);color:#000">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export modal -->
+  <div class="modal" id="emodal">
+    <div class="expbox">
+      <div class="exptitle">Export ready</div>
+      <div class="expsub">Right-click the image → Save image as · or use the download button below</div>
+      <img id="exp-img" src="" alt="mosaic">
+      <div class="mfoot">
+        <button onclick="document.getElementById('emodal').classList.remove('open')">Close</button>
+        <button id="dl-btn" class="btn-accent" onclick="trigDownload()">↓ Download PNG</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fup" multiple accept="image/*" style="display:none" onchange="addFiles(this.files)">
+<input type="file" id="bgup" accept="image/*" style="display:none" onchange="loadBgImg(this.files[0])">
+
+<script>
+const RATIOS={'16:9':{w:1920,h:1080},'4:3':{w:1600,h:1200},'1:1':{w:1080,h:1080},'9:16':{w:1080,h:1920},'3:2':{w:1500,h:1000},'A4':{w:1240,h:1754}};
+const GRID=12,MIN_ASP=0.42,MAIN_MAX_CROP=1.5;
+const MAIN_W=[2.5,5.5,3.8,2.8,2.5,2.5];
+const MAIN_MF=[0,0.25,0.18,0.13,0.10,0.08];
+const MAX_STAGE_H=480,PAD=0.07;
+
+let RW=1920,RH=1080,abX=0,abY=0,abW=0,abH=0;
+let imgs=[],cells=[],gap=12,seed=42,cornerR=0,fid=null;
+let bgMode='solid',solidClr='#111111',gradA='#0a0a0a',gradB='#3a2a1a',gradDir='v',bgImgSrc=null;
+let drawMode=false,drawing=false,drawX0=0,drawY0=0,drawX1=0,drawY1=0;
+let lastDataURL='';
+
+function rand(s){let r=s%2147483647;if(r<=0)r+=2147483646;return()=>{r=r*16807%2147483647;return(r-1)/2147483646}}
+function snap(v,u){return Math.round(v/u)*u}
+function xu(){return RW/GRID}
+function yu(){return RH/GRID}
+function cropR(nat,ca){return Math.max(ca/nat,nat/ca)}
+function gcd(a,b){return b?gcd(b,a%b):a}
+function aspStr(w,h){const r=Math.round(w),s=Math.round(h),g=gcd(r,s);return`${r/g} : ${s/g}`}
+
+// DRAW MODE
+function toggleDrawMode(){
+  drawMode=!drawMode;
+  document.getElementById('draw-btn').classList.toggle('on',drawMode);
+  document.getElementById('draw-overlay').classList.toggle('active',drawMode);
+  document.getElementById('draw-hint').style.display=drawMode?'block':'none';
+  if(!drawMode)document.getElementById('draw-preview').style.display='none';
+}
+function evPos(e){
+  const r=document.getElementById('stage').getBoundingClientRect();
+  const s=e.touches?e.touches[0]:e;
+  return{x:Math.max(0,Math.min(s.clientX-r.left,r.width)),y:Math.max(0,Math.min(s.clientY-r.top,r.height))};
+}
+function drawStart(e){if(!drawMode)return;e.preventDefault();drawing=true;const p=evPos(e);drawX0=p.x;drawY0=p.y;drawX1=p.x;drawY1=p.y;const pr=document.getElementById('draw-preview');pr.style.display='block';pr.style.left=drawX0+'px';pr.style.top=drawY0+'px';pr.style.width='0';pr.style.height='0';}
+function drawMove(e){
+  if(!drawing)return;e.preventDefault();
+  const p=evPos(e);drawX1=p.x;drawY1=p.y;
+  const x=Math.min(drawX0,drawX1),y=Math.min(drawY0,drawY1),w=Math.abs(drawX1-drawX0),h=Math.abs(drawY1-drawY0);
+  const pr=document.getElementById('draw-preview');pr.style.left=x+'px';pr.style.top=y+'px';pr.style.width=w+'px';pr.style.height=h+'px';
+  if(w>20&&h>20)document.getElementById('ratio-label').textContent=aspStr(w,h);
+}
+function drawEnd(e){
+  if(!drawing)return;drawing=false;
+  const w=Math.abs(drawX1-drawX0),h=Math.abs(drawY1-drawY0);
+  document.getElementById('draw-preview').style.display='none';
+  if(w<40||h<40)return;
+  abX=Math.round(Math.min(drawX0,drawX1));abY=Math.round(Math.min(drawY0,drawY1));
+  abW=Math.round(w);abH=Math.round(h);
+  RW=1920;RH=Math.round(1920*(h/w));
+  positionArtboard();
+  document.getElementById('ratio-label').textContent=aspStr(w,h);
+  toggleDrawMode();
+  if(imgs.length)doLayout();
+}
+
+// DIMENSIONS
+function setDimsFromRatio(){
+  const sw=document.getElementById('app').offsetWidth||800;
+  let aw=Math.round(sw*(1-PAD*2)),ah=Math.round(aw*RH/RW);
+  const maxAh=Math.round(MAX_STAGE_H*(1-PAD*2));
+  if(ah>maxAh){ah=maxAh;aw=Math.round(ah*RW/RH);}
+  abW=aw;abH=ah;
+  const stageH=Math.min(MAX_STAGE_H,Math.round(ah/(1-PAD*2)));
+  abX=Math.round((sw-aw)/2);abY=Math.round((stageH-ah)/2);
+  document.getElementById('stage').style.height=stageH+'px';
+  positionArtboard();
+  document.getElementById('ratio-label').textContent=aspStr(RW,RH);
+}
+function positionArtboard(){
+  const ab=document.getElementById('artboard');
+  ab.style.left=abX+'px';ab.style.top=abY+'px';ab.style.width=abW+'px';ab.style.height=abH+'px';
+}
+
+// BACKGROUND
+function setBgMode(m){
+  bgMode=m;
+  ['solid','gradient','image'].forEach((k,i)=>document.querySelectorAll('.mtab')[i].classList.toggle('on',k===m));
+  document.getElementById('solid-opts').style.display=m==='solid'?'flex':'none';
+  document.getElementById('grad-opts').style.display=m==='gradient'?'flex':'none';
+  document.getElementById('img-opts').style.display=m==='image'?'flex':'none';
+  applyBg();
+}
+function onSolidClr(v){solidClr=v;document.getElementById('sw-solid').style.background=v;applyBg()}
+function onGradClr(){gradA=document.getElementById('grad-a').value;gradB=document.getElementById('grad-b').value;document.getElementById('sw-a').style.background=gradA;document.getElementById('sw-b').style.background=gradB;applyBg()}
+function setGradDir(d){gradDir=d;document.getElementById('dir-v').classList.toggle('on',d==='v');document.getElementById('dir-h').classList.toggle('on',d==='h');applyBg()}
+function trigBgImg(){document.getElementById('bgup').click()}
+function loadBgImg(f){if(!f)return;const r=new FileReader();r.onload=e=>{bgImgSrc=e.target.result;document.getElementById('bgimgname').textContent=f.name;applyBg();};r.readAsDataURL(f)}
+function applyBg(){
+  const el=document.getElementById('stage-bg');
+  if(bgMode==='solid'){el.style.background=solidClr;el.style.backgroundImage='none';}
+  else if(bgMode==='gradient'){el.style.background=`linear-gradient(${gradDir==='v'?'to bottom':'to right'},${gradA},${gradB})`;}
+  else{if(bgImgSrc){el.style.backgroundImage=`url(${bgImgSrc})`;el.style.backgroundSize='cover';el.style.backgroundPosition='center';}else{el.style.background='#111';el.style.backgroundImage='none';}}
+}
+
+// BSP LAYOUT ENGINE
+function bspGeom(wts,rect,rng){
+  if(!wts.length)return[];
+  if(wts.length===1)return[{...rect}];
+  const mid=Math.ceil(wts.length/2);
+  const L=wts.slice(0,mid),R=wts.slice(mid);
+  const lw=L.reduce((s,w)=>s+w,0),rw=R.reduce((s,w)=>s+w,0);
+  const baseR=lw/(lw+rw),j=(rng()-.5)*.13;
+  const asp=rect.w/rect.h,pv=asp>1.5?true:asp<0.67?false:rng()>0.38;
+  function tryDir(vert){
+    const dim=vert?rect.w:rect.h,cross=vert?rect.h:rect.w;
+    const mc=Math.ceil(MIN_ASP*cross);
+    if(dim-gap<mc*2)return null;
+    const minR=mc/(dim-gap),maxR=1-minR;
+    if(minR>=maxR)return null;
+    const ratio=Math.max(minR,Math.min(maxR,baseR+j));
+    if(vert){
+      const rawX=rect.x+(rect.w-gap)*ratio;
+      let lw2=snap(rawX,xu())-rect.x;lw2=Math.max(mc,Math.min(rect.w-gap-mc,lw2));
+      const rw2=rect.w-gap-lw2;if(lw2<=0||rw2<=0)return null;
+      return[...bspGeom(L,{x:rect.x,y:rect.y,w:lw2,h:rect.h},rng),...bspGeom(R,{x:rect.x+lw2+gap,y:rect.y,w:rw2,h:rect.h},rng)];
+    }else{
+      const rawY=rect.y+(rect.h-gap)*ratio;
+      let th=snap(rawY,yu())-rect.y;th=Math.max(mc,Math.min(rect.h-gap-mc,th));
+      const bh=rect.h-gap-th;if(th<=0||bh<=0)return null;
+      return[...bspGeom(L,{x:rect.x,y:rect.y,w:rect.w,h:th},rng),...bspGeom(R,{x:rect.x,y:rect.y+th+gap,w:rect.w,h:bh},rng)];
+    }
+  }
+  const res=tryDir(pv)||tryDir(!pv);
+  if(res)return res;
+  if(rect.w>=rect.h){const lw2=Math.floor((rect.w-gap)/2);return[...bspGeom(L,{x:rect.x,y:rect.y,w:lw2,h:rect.h},rng),...bspGeom(R,{x:rect.x+lw2+gap,y:rect.y,w:rect.w-gap-lw2,h:rect.h},rng)];}
+  const th=Math.floor((rect.h-gap)/2);return[...bspGeom(L,{x:rect.x,y:rect.y,w:rect.w,h:th},rng),...bspGeom(R,{x:rect.x,y:rect.y+th+gap,w:rect.w,h:rect.h-gap-th},rng)];
+}
+
+function assignImgs(geom,minMainArea){
+  const mains=[...imgs.filter(i=>i.main)].sort((a,b)=>a.nat-b.nat);
+  const norms=[...imgs.filter(i=>!i.main)].sort((a,b)=>a.nat-b.nat);
+  const avail=[...geom].sort((a,b)=>b.w*b.h-a.w*a.h);
+  mains.forEach(img=>{
+    if(!avail.length)return;
+    const q=avail.filter(c=>c.w*c.h>=minMainArea);
+    const pool=q.length>0?q:avail.slice(0,Math.min(3,avail.length));
+    let best=pool[0];
+    pool.forEach(c=>{const cr=cropR(img.nat,c.w/c.h),bc=cropR(img.nat,best.w/best.h);if(cr<bc*0.95)best=c;});
+    best.img=img;avail.splice(avail.indexOf(best),1);
+  });
+  avail.sort((a,b)=>a.w/a.h-b.w/b.h);
+  avail.forEach((c,i)=>{if(norms[i])c.img=norms[i];});
+  return geom;
+}
+
+function doLayout(){
+  if(!imgs.length)return;
+  const nm=Math.min(imgs.filter(i=>i.main).length,5);
+  const mainW=MAIN_W[nm],minMainArea=MAIN_MF[nm]*RW*RH;
+  let best=null,bestScore=-1;
+  for(let att=0;att<8;att++){
+    const rng=rand(seed+att*6271);
+    const wts=imgs.map(i=>i.main?mainW:1);
+    for(let i=wts.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[wts[i],wts[j]]=[wts[j],wts[i]];}
+    const geom=bspGeom(wts,{x:0,y:0,w:RW,h:RH},rng);
+    const assigned=assignImgs(geom,minMainArea);
+    const mc=assigned.filter(c=>c.img&&c.img.main);
+    const meetsArea=nm===0||mc.every(c=>c.w*c.h>=minMainArea);
+    const cropScore=mc.length?mc.reduce((s,c)=>s+1/cropR(c.img.nat,c.w/c.h),0)/mc.length:1;
+    const score=(meetsArea?100:0)+cropScore;
+    if(score>bestScore){bestScore=score;best=assigned;}
+    if(meetsArea&&mc.every(c=>cropR(c.img.nat,c.w/c.h)<=MAIN_MAX_CROP))break;
+  }
+  cells=best;render();
+}
+
+function render(){
+  const ai=document.getElementById('artboard-inner');
+  ai.querySelectorAll('.cell').forEach(e=>e.remove());
+  document.getElementById('dz').style.display='none';
+  const scale=abW/RW,cr=(cornerR*scale).toFixed(1);
+  cells.forEach(c=>{
+    if(!c.img)return;
+    const d=document.createElement('div');d.className='cell';
+    d.style.cssText=`left:${c.x/RW*100}%;top:${c.y/RH*100}%;width:${c.w/RW*100}%;height:${c.h/RH*100}%;border-radius:${cr}px`;
+    const im=document.createElement('img');im.src=c.img.src;
+    const fp=c.img.fp||{x:.5,y:.5};im.style.objectPosition=`${fp.x*100}% ${fp.y*100}%`;
+    d.appendChild(im);ai.appendChild(d);
+  });
+  document.getElementById('sbtn').disabled=false;
+  document.getElementById('ebtn').disabled=false;
+}
+
+function makeTh(img){
+  const th=document.createElement('div');th.className='th'+(img.main?' main':'');
+  const ie=document.createElement('img');ie.src=img.src;
+  const fp=img.fp||{x:.5,y:.5};ie.style.objectPosition=`${fp.x*100}% ${fp.y*100}%`;
+  const dot=document.createElement('div');dot.className='fdot';dot.style.left=`${fp.x*100}%`;dot.style.top=`${fp.y*100}%`;
+  const xb=document.createElement('button');xb.className='ibtn xbtn';xb.textContent='×';
+  xb.onclick=()=>{
+    imgs=imgs.filter(i=>i.id!==img.id);
+    if(!imgs.length){document.getElementById('dz').style.display='flex';document.getElementById('artboard-inner').querySelectorAll('.cell').forEach(e=>e.remove());document.getElementById('tray').style.display='none';document.getElementById('hint').style.display='none';document.getElementById('sbtn').disabled=true;document.getElementById('ebtn').disabled=true;}
+    else{doLayout();renderTray();}
+  };
+  const mb=document.createElement('button');mb.className='ibtn mbtn'+(img.main?' on':'');mb.textContent='★';mb.title='Toggle main image (gets bigger cell)';
+  mb.onclick=()=>{img.main=!img.main;doLayout();renderTray();};
+  const fb=document.createElement('button');fb.className='ibtn fbtn';fb.textContent='⊕';fb.title='Set crop focal point';fb.onclick=()=>openMod(img.id);
+  th.append(ie,dot,xb,mb,fb);return th;
+}
+
+function renderTray(){
+  const tray=document.getElementById('tray');tray.innerHTML='';
+  imgs.forEach(img=>tray.appendChild(makeTh(img)));
+  const ab=document.createElement('button');ab.className='tadd';ab.textContent='+';ab.title='Add more images';ab.onclick=trigUp;tray.appendChild(ab);
+  tray.style.display='flex';document.getElementById('hint').style.display='block';
+}
+
+function addFiles(files){
+  const fs=Array.from(files).filter(f=>f.type.startsWith('image/'));
+  if(!fs.length)return;let n=0;
+  fs.forEach(f=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const el=new Image();
+      el.onload=()=>{
+        imgs.push({id:Date.now()+Math.random(),src:e.target.result,main:false,fp:{x:.5,y:.5},nat:el.width/el.height});
+        if(++n===fs.length){doLayout();renderTray();}
+      };el.src=e.target.result;
+    };r.readAsDataURL(f);
+  });
+}
+
+function onRatio(k){const r=RATIOS[k];RW=r.w;RH=r.h;setDimsFromRatio();if(imgs.length)doLayout();}
+function onGap(v){gap=+v;document.getElementById('gv').textContent=v;if(imgs.length)doLayout()}
+function onCorner(v){cornerR=+v;document.getElementById('cv').textContent=v;if(imgs.length)render()}
+function doShuffle(){seed=Math.floor(Math.random()*999998)+1;doLayout()}
+function trigUp(){document.getElementById('fup').click()}
+function dzOv(e){e.preventDefault();document.getElementById('dz').classList.add('over')}
+function dzLv(){document.getElementById('dz').classList.remove('over')}
+function dzDp(e){e.preventDefault();document.getElementById('dz').classList.remove('over');addFiles(e.dataTransfer.files)}
+
+function openMod(id){
+  fid=id;const img=imgs.find(i=>i.id===id);if(!img)return;
+  document.getElementById('mimg').src=img.src;
+  const fd=document.getElementById('mfdot');
+  if(img.fp){fd.style.display='block';fd.style.left=img.fp.x*100+'%';fd.style.top=img.fp.y*100+'%';}
+  else fd.style.display='none';
+  document.getElementById('fmodal').classList.add('open');
+}
+function closeMod(){document.getElementById('fmodal').classList.remove('open');fid=null}
+function clearFocal(){
+  if(!fid)return;
+  const img=imgs.find(i=>i.id===fid);
+  if(img){img.fp={x:.5,y:.5};document.getElementById('mfdot').style.display='none';doLayout();renderTray();}
+}
+function onFC(e){
+  if(!fid)return;
+  const mi=document.getElementById('mimg'),ir=mi.getBoundingClientRect();
+  if(e.clientX<ir.left||e.clientX>ir.right||e.clientY<ir.top||e.clientY>ir.bottom)return;
+  const x=(e.clientX-ir.left)/ir.width,y=(e.clientY-ir.top)/ir.height;
+  const img=imgs.find(i=>i.id===fid);
+  if(img){img.fp={x,y};const fd=document.getElementById('mfdot');fd.style.display='block';fd.style.left=x*100+'%';fd.style.top=y*100+'%';doLayout();renderTray();}
+}
+
+function rrect(ctx,x,y,w,h,r){
+  const rc=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+rc,y);ctx.lineTo(x+w-rc,y);ctx.quadraticCurveTo(x+w,y,x+w,y+rc);ctx.lineTo(x+w,y+h-rc);ctx.quadraticCurveTo(x+w,y+h,x+w-rc,y+h);ctx.lineTo(x+rc,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-rc);ctx.lineTo(x,y+rc);ctx.quadraticCurveTo(x,y,x+rc,y);ctx.closePath();
+}
+
+function doExport(){
+  if(!cells.length)return;
+  document.getElementById('ebtn').textContent='Rendering...';
+  document.getElementById('ebtn').disabled=true;
+  const cv=document.createElement('canvas');cv.width=RW;cv.height=RH;
+  const ctx=cv.getContext('2d');
+  Promise.all(cells.map(c=>new Promise(res=>{
+    if(!c.img)return res();
+    const im=new Image();
+    im.onload=()=>{
+      const fp=c.img.fp||{x:.5,y:.5},iw=im.width,ih=im.height,cw=c.w,ch=c.h,ia=iw/ih,ca=cw/ch;
+      let sx,sy,sw,sh;
+      if(ia>ca){sh=ih;sw=ih*ca;sx=Math.max(0,Math.min(iw-sw,fp.x*iw-sw/2));sy=0}
+      else{sw=iw;sh=iw/ca;sx=0;sy=Math.max(0,Math.min(ih-sh,fp.y*ih-sh/2))}
+      ctx.save();if(cornerR>0){rrect(ctx,c.x,c.y,cw,ch,cornerR);ctx.clip();}
+      ctx.drawImage(im,sx,sy,sw,sh,c.x,c.y,cw,ch);ctx.restore();res();
+    };
+    im.onerror=res;im.src=c.img.src;
+  }))).then(()=>{
+    document.getElementById('ebtn').textContent='↓ Export PNG';
+    document.getElementById('ebtn').disabled=false;
+    lastDataURL=cv.toDataURL('image/png');
+    // Try direct download
+    try{const a=document.createElement('a');a.href=lastDataURL;a.download='mosaic.png';document.body.appendChild(a);a.click();document.body.removeChild(a);}catch(e){}
+    // Show modal as backup
+    document.getElementById('exp-img').src=lastDataURL;
+    document.getElementById('emodal').classList.add('open');
+  });
+}
+
+function trigDownload(){
+  if(!lastDataURL)return;
+  const a=document.createElement('a');a.href=lastDataURL;a.download='mosaic.png';document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
+window.addEventListener('resize',()=>{setDimsFromRatio();if(imgs.length)render();});
+setTimeout(()=>{setDimsFromRatio();applyBg();},0);
+</script>
+</body>
+</html>
