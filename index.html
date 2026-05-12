@@ -21,7 +21,7 @@ select{font-family:inherit;font-size:12px;padding:3px 6px;border-radius:var(--ra
 input[type=range]{accent-color:var(--accent);cursor:pointer}
 
 /* LAYOUT */
-#app{max-width:960px;margin:0 auto;padding:16px 20px 40px}
+#app{max-width:1600px;margin:0 auto;padding:16px 40px 40px}
 .hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border);margin-bottom:14px;flex-wrap:wrap;gap:8px}
 .logo{font-size:16px;font-weight:500;letter-spacing:-0.02em;color:var(--text)}
 .logo span{color:var(--text3);font-weight:400;font-size:12px;margin-left:6px}
@@ -225,7 +225,7 @@ const RATIOS={'16:9':{w:1920,h:1080},'4:3':{w:1600,h:1200},'1:1':{w:1080,h:1080}
 const GRID=12,MIN_ASP=0.42,MAIN_MAX_CROP=1.5;
 const MAIN_W=[2.5,5.5,3.8,2.8,2.5,2.5];
 const MAIN_MF=[0,0.25,0.18,0.13,0.10,0.08];
-const MAX_STAGE_H=480,PAD=0.07;
+const MAX_STAGE_H=Math.min(Math.max(500,window.innerHeight-200),900),PAD=0.04;
 
 let RW=1920,RH=1080,abX=0,abY=0,abW=0,abH=0;
 let imgs=[],cells=[],gap=12,seed=42,cornerR=0,fid=null;
@@ -278,12 +278,13 @@ function drawEnd(e){
 
 // DIMENSIONS
 function setDimsFromRatio(){
-  const sw=document.getElementById('app').offsetWidth||800;
+  const maxStageH=Math.min(Math.max(500,window.innerHeight-200),900);
+  const sw=document.getElementById('stage').offsetWidth||1200;
   let aw=Math.round(sw*(1-PAD*2)),ah=Math.round(aw*RH/RW);
-  const maxAh=Math.round(MAX_STAGE_H*(1-PAD*2));
+  const maxAh=Math.round(maxStageH*(1-PAD*2));
   if(ah>maxAh){ah=maxAh;aw=Math.round(ah*RW/RH);}
   abW=aw;abH=ah;
-  const stageH=Math.min(MAX_STAGE_H,Math.round(ah/(1-PAD*2)));
+  const stageH=Math.min(maxStageH,Math.round(ah/(1-PAD*2)));
   abX=Math.round((sw-aw)/2);abY=Math.round((stageH-ah)/2);
   document.getElementById('stage').style.height=stageH+'px';
   positionArtboard();
