@@ -240,7 +240,7 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
     <div class="mbox">
       <div class="mhint">Drag the circle to set the focal point — crops stay anchored here</div>
       <div class="mimgwrap" id="mimgwrap"
-           onmousedown="fpStart(event)" onmousemove="fpMove(event)" onmouseup="fpEnd(event)" onmouseleave="fpEnd(event)"
+           onmousedown="fpStart(event)"
            ontouchstart="fpStart(event)" ontouchmove="fpMove(event)" ontouchend="fpEnd(event)">
         <img id="mimg" src="" alt="">
         <div class="mfdot" id="mfdot"></div>
@@ -562,27 +562,34 @@ function fpCellUpdate(imgId,x,y){
     if(th.dataset.imgId==imgId){const im=th.querySelector('img');if(im)im.style.objectPosition=`${x*100}% ${y*100}%`;}
   });
 }
-function fpStart(e){
+function fpApply(e){
   if(!fid)return;
-  const pos=fpGetPos(e);if(!pos.ok)return;
-  fpDragging=true;
-  document.getElementById('mimgwrap').classList.add('dragging');
-  const img=imgs.find(i=>i.id===fid);
-  if(img){img.fp={x:pos.x,y:pos.y};fpDotUpdate(pos.x,pos.y);fpCellUpdate(fid,pos.x,pos.y);}
-}
-function fpMove(e){
-  if(!fpDragging||!fid)return;
-  e.preventDefault();
   const pos=fpGetPos(e);
   const img=imgs.find(i=>i.id===fid);
   if(img){img.fp={x:pos.x,y:pos.y};fpDotUpdate(pos.x,pos.y);fpCellUpdate(fid,pos.x,pos.y);}
 }
-function fpEnd(){
+function fpMoveGlobal(e){if(fpDragging)fpApply(e);}
+function fpEndGlobal(e){
   if(!fpDragging)return;
   fpDragging=false;
   document.getElementById('mimgwrap').classList.remove('dragging');
+  document.removeEventListener('mousemove',fpMoveGlobal);
+  document.removeEventListener('mouseup',fpEndGlobal);
   if(fid){doLayout();renderTray();}
 }
+function fpStart(e){
+  if(!fid)return;
+  e.preventDefault();
+  const pos=fpGetPos(e);if(!pos.ok)return;
+  fpDragging=true;
+  document.getElementById('mimgwrap').classList.add('dragging');
+  fpApply(e);
+  // Global listeners so drag works even when mouse leaves the image area
+  document.addEventListener('mousemove',fpMoveGlobal);
+  document.addEventListener('mouseup',fpEndGlobal);
+}
+function fpMove(e){if(fpDragging){e.preventDefault();fpApply(e);}}
+function fpEnd(){fpEndGlobal();}
 
 function rrect(ctx,x,y,w,h,r){
   const rc=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+rc,y);ctx.lineTo(x+w-rc,y);ctx.quadraticCurveTo(x+w,y,x+w,y+rc);ctx.lineTo(x+w,y+h-rc);ctx.quadraticCurveTo(x+w,y+h,x+w-rc,y+h);ctx.lineTo(x+rc,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-rc);ctx.lineTo(x,y+rc);ctx.quadraticCurveTo(x,y,x+rc,y);ctx.closePath();
