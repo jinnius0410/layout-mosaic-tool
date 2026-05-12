@@ -35,7 +35,7 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
 .draw-btn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
 
 /* BG PANEL */
-.bgpanel{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:12px;flex-wrap:wrap;border:0.5px solid var(--border)}
+.bgpanel{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:12px;flex-wrap:nowrap;border:0.5px solid var(--border);overflow:hidden}
 .bgpanel > label{font-size:13px;color:var(--text2);white-space:nowrap}
 .modetabs{display:flex;gap:3px}
 .mtab{padding:4px 10px;font-size:12px}
@@ -45,10 +45,10 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
 .dirtab{padding:4px 9px;font-size:12px}
 .dirtab.on{background:rgba(200,169,110,.18);border-color:var(--accent);color:var(--accent)}
 /* Coloris native wrapper — inline swatch + hex input */
-.clr-field{display:inline-flex!important;align-items:center;gap:6px}
-.clr-field button{width:22px!important;height:22px!important;border-radius:4px!important;border:0.5px solid var(--border2)!important;flex-shrink:0;order:-1}
-input.coloris{width:80px;font-size:12px;font-family:'SF Mono','Fira Mono',monospace;background:var(--bg2);border:0.5px solid var(--border2);color:var(--text2);border-radius:var(--radius);padding:3px 8px;cursor:pointer;letter-spacing:.03em}
-input.coloris:hover{border-color:var(--border)}
+.clr-field{display:inline-flex!important;align-items:center!important;gap:6px!important;position:relative!important}
+.clr-field>button{position:static!important;width:22px!important;height:22px!important;min-width:22px!important;min-height:22px!important;border-radius:4px!important;border:0.5px solid var(--border2)!important;flex-shrink:0!important;margin:0!important;padding:0!important;cursor:pointer}
+input.coloris,input.coloris:focus{width:80px!important;padding:3px 8px!important;font-size:12px!important;font-family:'SF Mono','Fira Mono',monospace!important;background:var(--bg2)!important;border:0.5px solid var(--border2)!important;color:var(--text2)!important;border-radius:var(--radius)!important;cursor:pointer!important;letter-spacing:.03em!important;box-shadow:none!important}
+input.coloris:hover{border-color:var(--border)!important}
 /* Coloris picker panel dark theme */
 .clr-picker{background:#1c1c1c!important;border:0.5px solid #333!important;border-radius:10px!important;box-shadow:0 8px 32px rgba(0,0,0,.7)!important}
 .clr-hue,.clr-alpha{border-radius:4px!important}
@@ -110,7 +110,7 @@ input.coloris:hover{border-color:var(--border)}
 .expbox .expsub{font-size:11px;color:var(--text2);margin-bottom:12px}
 .expbox img{max-width:100%;border-radius:var(--radius);display:block;margin-bottom:12px;border:0.5px solid var(--border)}
 </style>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@melloware/coloris@0.24.0/dist/coloris.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@melloware/coloris@latest/dist/coloris.min.css">
 </head>
 <body>
 <div id="app">
@@ -523,21 +523,19 @@ function trigDownload(){
 window.addEventListener('resize',()=>{setDimsFromRatio();if(imgs.length)render();});
 setTimeout(()=>{setDimsFromRatio();applyBg();},0);
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@melloware/coloris@0.24.0/dist/coloris.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@melloware/coloris@latest/dist/coloris.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  Coloris({
-    el: '.coloris',
-    themeMode: 'dark',
-    alpha: false,
-    format: 'hex',
-    swatches: ['#000000','#111111','#1a1a1a','#333333','#555555','#ffffff','#c8a96e','#1a2535','#2a1a2a','#1a2520'],
-    onChange: function(color, input) {
-      if (input.id === 'solid-clr') { solidClr = color; applyBg(); }
-      else if (input.id === 'grad-a') { gradA = color; applyBg(); }
-      else if (input.id === 'grad-b') { gradB = color; applyBg(); }
-    }
-  });
+Coloris({
+  el: '.coloris',
+  themeMode: 'dark',
+  alpha: false,
+  format: 'hex',
+  swatches: ['#000000','#111111','#1a1a1a','#333333','#555555','#ffffff','#c8a96e','#1a2535','#2a1a2a','#1a2520'],
+  onChange: function(color, input) {
+    if (input.id === 'solid-clr') { solidClr = color; applyBg(); }
+    else if (input.id === 'grad-a') { gradA = color; applyBg(); }
+    else if (input.id === 'grad-b') { gradB = color; applyBg(); }
+  }
 });
 </script>
 </body>
