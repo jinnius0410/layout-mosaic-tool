@@ -35,7 +35,7 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
 .draw-btn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-text)}
 
 /* BG PANEL */
-.bgpanel{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg2);border-radius:var(--radius);margin-bottom:12px;flex-wrap:nowrap;border:0.5px solid var(--border);overflow:hidden}
+.bgpanel{display:flex;align-items:center;gap:8px;padding:5px 10px;background:var(--bg2);border-radius:var(--radius);flex-wrap:nowrap;border:0.5px solid var(--border);overflow:hidden}
 .bgpanel > label{font-size:13px;color:var(--text2);white-space:nowrap}
 .modetabs{display:flex;gap:3px}
 .mtab{padding:4px 10px;font-size:12px}
@@ -61,13 +61,13 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
 .bgimgbtn{padding:4px 10px;font-size:12px}
 
 /* STAGE */
-.stage{position:relative;width:100%;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px;user-select:none}
+.stage{position:relative;width:100%;min-height:300px;border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px;user-select:none}
 .stage-bg{position:absolute;inset:0;z-index:0}
 .draw-overlay{position:absolute;inset:0;z-index:10;display:none;cursor:crosshair}
 .draw-overlay.active{display:block}
 .draw-preview{position:absolute;border:2px dashed var(--accent);pointer-events:none;display:none;z-index:11}
 .draw-hint{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:var(--accent);font-size:11px;padding:5px 12px;border-radius:20px;pointer-events:none;white-space:nowrap;z-index:12;display:none}
-.artboard{position:absolute;z-index:2;overflow:hidden}
+.artboard{position:absolute;z-index:2;overflow:hidden;left:4%;top:4%;width:92%;height:92%}
 .artboard-inner{position:relative;width:100%;height:100%}
 .cell{position:absolute;overflow:hidden;z-index:1}
 .cell img{width:100%;height:100%;object-fit:cover;display:block}
@@ -147,7 +147,8 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
     </div>
   </div>
 
-  <div class="bgpanel">
+  <div style="display:flex;gap:8px;margin-bottom:12px">
+  <div class="bgpanel" style="flex:1">
     <label>Background</label>
     <div class="modetabs">
       <button class="mtab on" onclick="setBgMode('solid')">Solid</button>
@@ -208,6 +209,9 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
       </div>
     </div>
   </div>
+  </div><!-- end panels row -->
+
+  <div class="stage" id="stage">
     <div class="stage-bg" id="stage-bg"></div>
     <div class="draw-overlay" id="draw-overlay"
       onmousedown="drawStart(event)" onmousemove="drawMove(event)" onmouseup="drawEnd(event)"
@@ -326,9 +330,9 @@ function drawEnd(e){
 // DIMENSIONS
 function setDimsFromRatio(){
   const stageEl=document.getElementById('stage');
-  if(!stageEl){setTimeout(setDimsFromRatio,50);return;}
+  if(!stageEl)return;
   const maxStageH=Math.min(Math.max(500,window.innerHeight-200),900);
-  const sw=stageEl.offsetWidth||1200;
+  const sw=Math.max(stageEl.offsetWidth||stageEl.clientWidth||800,400);
   let aw=Math.round(sw*(1-PAD*2)),ah=Math.round(aw*RH/RW);
   const maxAh=Math.round(maxStageH*(1-PAD*2));
   if(ah>maxAh){ah=maxAh;aw=Math.round(ah*RW/RH);}
@@ -444,15 +448,21 @@ function render(){
   document.getElementById('dz').style.display='none';
   const scale=abW/RW,cr=(cornerR*scale).toFixed(1);
   const outlinePx=outlineOn?(outlineThickness*scale).toFixed(1):0;
-  const shadow=outlineOn?`inset 0 0 0 ${outlinePx}px ${outlineColor}`:'none';
   cells.forEach(c=>{
     if(!c.img)return;
     const d=document.createElement('div');d.className='cell';
     d.dataset.imgId=c.img.id;
-    d.style.cssText=`left:${c.x/RW*100}%;top:${c.y/RH*100}%;width:${c.w/RW*100}%;height:${c.h/RH*100}%;border-radius:${cr}px;box-shadow:${shadow}`;
+    d.style.cssText=`left:${c.x/RW*100}%;top:${c.y/RH*100}%;width:${c.w/RW*100}%;height:${c.h/RH*100}%;border-radius:${cr}px`;
     const im=document.createElement('img');im.src=c.img.src;
     const fp=c.img.fp||{x:.5,y:.5};im.style.objectPosition=`${fp.x*100}% ${fp.y*100}%`;
-    d.appendChild(im);ai.appendChild(d);
+    d.appendChild(im);
+    // Outline overlay sits on TOP of the image so it's always visible
+    if(outlineOn&&outlineThickness>0){
+      const ov=document.createElement('div');
+      ov.style.cssText=`position:absolute;inset:0;box-shadow:inset 0 0 0 ${outlinePx}px ${outlineColor};border-radius:${cr}px;pointer-events:none;z-index:2`;
+      d.appendChild(ov);
+    }
+    ai.appendChild(d);
   });
   document.getElementById('sbtn').disabled=false;
   document.getElementById('ebtn').disabled=false;
@@ -620,68 +630,44 @@ function trigDownload(){
 }
 
 window.addEventListener('resize',()=>{setDimsFromRatio();if(imgs.length)render();});
-setTimeout(()=>{setDimsFromRatio();applyBg();},50);
+// Direct call — DOM is parsed by the time this script runs (bottom of body)
+setDimsFromRatio();
+applyBg();
+// Load event backup — fires again after all external resources settle
+window.addEventListener('load',function(){setDimsFromRatio();applyBg();});
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@melloware/coloris@latest/dist/coloris.min.js"></script>
+<script async id="clr-js" src="https://cdn.jsdelivr.net/npm/@melloware/coloris@latest/dist/coloris.min.js"></script>
 <script>
-Coloris({
-  el: '.coloris',
-  themeMode: 'dark',
-  alpha: false,
-  format: 'hex',
-  swatches: ['#000000','#111111','#1a1a1a','#333333','#555555','#ffffff','#c8a96e','#1a2535','#2a1a2a','#1a2520'],
-  onChange: function(color, input) {
-    if (input.id === 'solid-clr') {
-      solidClr = color;
-      document.getElementById('sw-solid').style.background = color;
-      document.getElementById('hex-solid').textContent = color;
-      applyBg();
-    } else if (input.id === 'grad-a') {
-      gradA = color;
-      document.getElementById('sw-a').style.background = color;
-      document.getElementById('hex-grad-a').textContent = color;
-      applyBg();
-    } else if (input.id === 'grad-b') {
-      gradB = color;
-      document.getElementById('sw-b').style.background = color;
-      document.getElementById('hex-grad-b').textContent = color;
-      applyBg();
-    } else if (input.id === 'outline-clr') {
-      outlineColor = color;
-      document.getElementById('sw-outline').style.background = color;
-      document.getElementById('hex-outline').textContent = color;
-      if (imgs.length) render();
-    }
-  }
-});
-// Fallback via native input events
-['solid-clr','grad-a','grad-b','outline-clr'].forEach(function(id) {
-  var el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('input', function() {
-    var v = el.value;
-    if (!/^#[0-9a-fA-F]{6}$/.test(v)) return;
-    if (id === 'solid-clr') {
-      solidClr=v;
-      document.getElementById('sw-solid').style.background=v;
-      document.getElementById('hex-solid').textContent=v;
-      applyBg();
-    } else if (id === 'outline-clr') {
-      outlineColor=v;
-      document.getElementById('sw-outline').style.background=v;
-      document.getElementById('hex-outline').textContent=v;
-      if(imgs.length)render();
-    } else {
-      gradA=document.getElementById('grad-a').value;
-      gradB=document.getElementById('grad-b').value;
-      document.getElementById('sw-a').style.background=gradA;
-      document.getElementById('sw-b').style.background=gradB;
-      document.getElementById('hex-grad-a').textContent=gradA;
-      document.getElementById('hex-grad-b').textContent=gradB;
-      applyBg();
+function startColoris(){
+  if(typeof Coloris==='undefined')return;
+  Coloris({
+    el:'.coloris',
+    themeMode:'dark',
+    alpha:false,
+    format:'hex',
+    swatches:['#000000','#111111','#1a1a1a','#333333','#555555','#ffffff','#c8a96e','#1a2535','#2a1a2a','#1a2520'],
+    onChange:function(color,input){
+      if(input.id==='solid-clr'){solidClr=color;document.getElementById('sw-solid').style.background=color;document.getElementById('hex-solid').textContent=color;applyBg();}
+      else if(input.id==='grad-a'){gradA=color;document.getElementById('sw-a').style.background=color;document.getElementById('hex-grad-a').textContent=color;applyBg();}
+      else if(input.id==='grad-b'){gradB=color;document.getElementById('sw-b').style.background=color;document.getElementById('hex-grad-b').textContent=color;applyBg();}
+      else if(input.id==='outline-clr'){outlineColor=color;document.getElementById('sw-outline').style.background=color;document.getElementById('hex-outline').textContent=color;if(imgs.length)render();}
     }
   });
-});
+  ['solid-clr','grad-a','grad-b','outline-clr'].forEach(function(id){
+    var el=document.getElementById(id);if(!el)return;
+    el.addEventListener('input',function(){
+      var v=el.value;if(!/^#[0-9a-fA-F]{6}$/.test(v))return;
+      if(id==='solid-clr'){solidClr=v;document.getElementById('sw-solid').style.background=v;document.getElementById('hex-solid').textContent=v;applyBg();}
+      else if(id==='outline-clr'){outlineColor=v;document.getElementById('sw-outline').style.background=v;document.getElementById('hex-outline').textContent=v;if(imgs.length)render();}
+      else{gradA=document.getElementById('grad-a').value;gradB=document.getElementById('grad-b').value;document.getElementById('sw-a').style.background=gradA;document.getElementById('sw-b').style.background=gradB;document.getElementById('hex-grad-a').textContent=gradA;document.getElementById('hex-grad-b').textContent=gradB;applyBg();}
+    });
+  });
+}
+// Try immediately (cache hit), on script load, and after delays
+startColoris();
+var _cs=document.getElementById('clr-js');
+if(_cs)_cs.addEventListener('load',startColoris);
+setTimeout(startColoris,500);
 </script>
 </body>
 </html>
