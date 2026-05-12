@@ -44,8 +44,18 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
 .graddir{display:flex;gap:3px}
 .dirtab{padding:4px 9px;font-size:12px}
 .dirtab.on{background:rgba(200,169,110,.18);border-color:var(--accent);color:var(--accent)}
-.clrswatch{width:22px;height:22px;border-radius:4px;border:0.5px solid var(--border2);cursor:pointer;position:relative;overflow:hidden;flex-shrink:0}
-.clrswatch input[type=color]{position:absolute;inset:-4px;width:calc(100%+8px);height:calc(100%+8px);opacity:0;cursor:pointer}
+/* Coloris native wrapper — inline swatch + hex input */
+.clr-field{display:inline-flex!important;align-items:center;gap:6px}
+.clr-field button{width:22px!important;height:22px!important;border-radius:4px!important;border:0.5px solid var(--border2)!important;flex-shrink:0;order:-1}
+input.coloris{width:80px;font-size:12px;font-family:'SF Mono','Fira Mono',monospace;background:var(--bg2);border:0.5px solid var(--border2);color:var(--text2);border-radius:var(--radius);padding:3px 8px;cursor:pointer;letter-spacing:.03em}
+input.coloris:hover{border-color:var(--border)}
+/* Coloris picker panel dark theme */
+.clr-picker{background:#1c1c1c!important;border:0.5px solid #333!important;border-radius:10px!important;box-shadow:0 8px 32px rgba(0,0,0,.7)!important}
+.clr-hue,.clr-alpha{border-radius:4px!important}
+.clr-format .clr-segmented{background:#141414!important;border-color:#333!important}
+.clr-format .clr-segmented label{color:#777!important}
+.clr-format .clr-segmented input:checked+label{background:#2e2e2e!important;color:#ddd!important}
+.clr-swatches button{border-radius:3px!important}
 .bgimgbtn{padding:4px 10px;font-size:12px}
 
 /* STAGE */
@@ -100,6 +110,7 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
 .expbox .expsub{font-size:11px;color:var(--text2);margin-bottom:12px}
 .expbox img{max-width:100%;border-radius:var(--radius);display:block;margin-bottom:12px;border:0.5px solid var(--border)}
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@melloware/coloris@0.24.0/dist/coloris.min.css">
 </head>
 <body>
 <div id="app">
@@ -142,17 +153,11 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
     </div>
     <div class="bgsep"></div>
     <div id="solid-opts" style="display:flex;align-items:center;gap:6px">
-      <div class="clrswatch" id="sw-solid" style="background:#111" title="Click to pick color">
-        <input type="color" id="solid-clr" value="#111111" oninput="onSolidClr(this.value)">
-      </div>
+      <input type="text" id="solid-clr" class="coloris" value="#111111">
     </div>
-    <div id="grad-opts" style="display:none;align-items:center;gap:6px">
-      <div class="clrswatch" id="sw-a" style="background:#0a0a0a">
-        <input type="color" id="grad-a" value="#0a0a0a" oninput="onGradClr()">
-      </div>
-      <div class="clrswatch" id="sw-b" style="background:#3a2a1a">
-        <input type="color" id="grad-b" value="#3a2a1a" oninput="onGradClr()">
-      </div>
+    <div id="grad-opts" style="display:none;align-items:center;gap:8px">
+      <input type="text" id="grad-a" class="coloris" value="#0a0a0a">
+      <input type="text" id="grad-b" class="coloris" value="#3a2a1a">
       <div class="graddir">
         <button class="dirtab on" id="dir-v" onclick="setGradDir('v')">↕</button>
         <button class="dirtab" id="dir-h" onclick="setGradDir('h')">↔</button>
@@ -304,8 +309,8 @@ function setBgMode(m){
   document.getElementById('img-opts').style.display=m==='image'?'flex':'none';
   applyBg();
 }
-function onSolidClr(v){solidClr=v;document.getElementById('sw-solid').style.background=v;applyBg()}
-function onGradClr(){gradA=document.getElementById('grad-a').value;gradB=document.getElementById('grad-b').value;document.getElementById('sw-a').style.background=gradA;document.getElementById('sw-b').style.background=gradB;applyBg()}
+function onSolidClr(v){solidClr=v;applyBg()}
+function onGradClr(){gradA=document.getElementById('grad-a').value;gradB=document.getElementById('grad-b').value;applyBg()}
 function setGradDir(d){gradDir=d;document.getElementById('dir-v').classList.toggle('on',d==='v');document.getElementById('dir-h').classList.toggle('on',d==='h');applyBg()}
 function trigBgImg(){document.getElementById('bgup').click()}
 function loadBgImg(f){if(!f)return;const r=new FileReader();r.onload=e=>{bgImgSrc=e.target.result;document.getElementById('bgimgname').textContent=f.name;applyBg();};r.readAsDataURL(f)}
@@ -517,6 +522,23 @@ function trigDownload(){
 
 window.addEventListener('resize',()=>{setDimsFromRatio();if(imgs.length)render();});
 setTimeout(()=>{setDimsFromRatio();applyBg();},0);
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@melloware/coloris@0.24.0/dist/coloris.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  Coloris({
+    el: '.coloris',
+    themeMode: 'dark',
+    alpha: false,
+    format: 'hex',
+    swatches: ['#000000','#111111','#1a1a1a','#333333','#555555','#ffffff','#c8a96e','#1a2535','#2a1a2a','#1a2520'],
+    onChange: function(color, input) {
+      if (input.id === 'solid-clr') { solidClr = color; applyBg(); }
+      else if (input.id === 'grad-a') { gradA = color; applyBg(); }
+      else if (input.id === 'grad-b') { gradB = color; applyBg(); }
+    }
+  });
+});
 </script>
 </body>
 </html>
