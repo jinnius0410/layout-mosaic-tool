@@ -50,8 +50,7 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
 .clr-field>button{display:none!important}
 .manual-swatch{width:22px;height:22px;border-radius:4px;border:0.5px solid var(--border2);flex-shrink:0;cursor:pointer;transition:border-color .12s}
 .manual-swatch:hover{border-color:var(--border)}
-input.coloris,input.coloris:focus{width:80px!important;padding:3px 8px!important;font-size:12px!important;font-family:'SF Mono','Fira Mono',monospace!important;background:var(--bg2)!important;border:0.5px solid var(--border2)!important;color:var(--text2)!important;border-radius:var(--radius)!important;cursor:pointer!important;letter-spacing:.03em!important;box-shadow:none!important;outline:none!important}
-input.coloris:hover{border-color:var(--border)!important}
+.hex-display{font-size:12px;font-family:'SF Mono','Fira Mono',monospace;color:var(--text2);letter-spacing:.03em;pointer-events:none;user-select:none}
 /* Coloris picker panel dark theme */
 .clr-picker{background:#1c1c1c!important;border:0.5px solid #333!important;border-radius:10px!important;box-shadow:0 8px 32px rgba(0,0,0,.7)!important}
 .clr-hue,.clr-alpha{border-radius:4px!important}
@@ -156,17 +155,26 @@ input.coloris:hover{border-color:var(--border)!important}
     </div>
     <div class="bgsep"></div>
     <div id="solid-opts" style="display:flex;align-items:center;gap:6px">
-      <div id="sw-solid" class="manual-swatch" style="background:#111111" onclick="document.getElementById('solid-clr').focus()" title="Click to pick color"></div>
-      <input type="text" id="solid-clr" class="coloris" value="#111111">
+      <div style="position:relative;width:22px;height:22px;flex-shrink:0">
+        <div id="sw-solid" class="manual-swatch" style="background:#111111"></div>
+        <input type="text" id="solid-clr" class="coloris" value="#111111" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;padding:0;border:none;background:transparent">
+      </div>
+      <span id="hex-solid" class="hex-display">#111111</span>
     </div>
     <div id="grad-opts" style="display:none;align-items:center;gap:8px">
       <div style="display:flex;align-items:center;gap:6px">
-        <div id="sw-a" class="manual-swatch" style="background:#0a0a0a" onclick="document.getElementById('grad-a').focus()" title="Gradient start"></div>
-        <input type="text" id="grad-a" class="coloris" value="#0a0a0a">
+        <div style="position:relative;width:22px;height:22px;flex-shrink:0">
+          <div id="sw-a" class="manual-swatch" style="background:#0a0a0a"></div>
+          <input type="text" id="grad-a" class="coloris" value="#0a0a0a" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;padding:0;border:none;background:transparent">
+        </div>
+        <span id="hex-grad-a" class="hex-display">#0a0a0a</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
-        <div id="sw-b" class="manual-swatch" style="background:#3a2a1a" onclick="document.getElementById('grad-b').focus()" title="Gradient end"></div>
-        <input type="text" id="grad-b" class="coloris" value="#3a2a1a">
+        <div style="position:relative;width:22px;height:22px;flex-shrink:0">
+          <div id="sw-b" class="manual-swatch" style="background:#3a2a1a"></div>
+          <input type="text" id="grad-b" class="coloris" value="#3a2a1a" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;padding:0;border:none;background:transparent">
+        </div>
+        <span id="hex-grad-b" class="hex-display">#3a2a1a</span>
       </div>
       <div class="graddir">
         <button class="dirtab on" id="dir-v" onclick="setGradDir('v')">↕</button>
@@ -545,14 +553,17 @@ Coloris({
     if (input.id === 'solid-clr') {
       solidClr = color;
       document.getElementById('sw-solid').style.background = color;
+      document.getElementById('hex-solid').textContent = color;
       applyBg();
     } else if (input.id === 'grad-a') {
       gradA = color;
       document.getElementById('sw-a').style.background = color;
+      document.getElementById('hex-grad-a').textContent = color;
       applyBg();
     } else if (input.id === 'grad-b') {
       gradB = color;
       document.getElementById('sw-b').style.background = color;
+      document.getElementById('hex-grad-b').textContent = color;
       applyBg();
     }
   }
@@ -564,8 +575,20 @@ Coloris({
   el.addEventListener('input', function() {
     var v = el.value;
     if (!/^#[0-9a-fA-F]{6}$/.test(v)) return;
-    if (id === 'solid-clr') { solidClr=v; document.getElementById('sw-solid').style.background=v; applyBg(); }
-    else { gradA=document.getElementById('grad-a').value; gradB=document.getElementById('grad-b').value; document.getElementById('sw-a').style.background=gradA; document.getElementById('sw-b').style.background=gradB; applyBg(); }
+    if (id === 'solid-clr') {
+      solidClr=v;
+      document.getElementById('sw-solid').style.background=v;
+      document.getElementById('hex-solid').textContent=v;
+      applyBg();
+    } else {
+      gradA=document.getElementById('grad-a').value;
+      gradB=document.getElementById('grad-b').value;
+      document.getElementById('sw-a').style.background=gradA;
+      document.getElementById('sw-b').style.background=gradB;
+      document.getElementById('hex-grad-a').textContent=gradA;
+      document.getElementById('hex-grad-b').textContent=gradB;
+      applyBg();
+    }
   });
 });
 </script>
