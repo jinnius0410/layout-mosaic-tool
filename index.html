@@ -103,9 +103,10 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
 .modal.open{display:flex}
 .mbox{background:var(--bg2);border-radius:var(--radius-lg);border:0.5px solid var(--border2);padding:18px;width:90%;max-width:400px}
 .mhint{font-size:12px;color:var(--text2);margin-bottom:12px;text-align:center}
-.mimgwrap{position:relative;cursor:crosshair;border-radius:var(--radius);overflow:hidden;background:#000;text-align:center}
+.mimgwrap{position:relative;cursor:grab;border-radius:var(--radius);overflow:hidden;background:#000;text-align:center}
+.mimgwrap.dragging{cursor:grabbing}
 .mimgwrap img{max-width:100%;max-height:280px;display:inline-block;vertical-align:bottom}
-.mfdot{position:absolute;width:14px;height:14px;border-radius:50%;background:rgba(200,169,110,.3);border:2px solid var(--accent);transform:translate(-50%,-50%);pointer-events:none;display:none}
+.mfdot{position:absolute;width:20px;height:20px;border-radius:50%;background:rgba(200,169,110,.25);border:2px solid var(--accent);transform:translate(-50%,-50%);pointer-events:none;display:none;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
 .mfoot{margin-top:12px;text-align:right;display:flex;gap:8px;justify-content:flex-end}
 .expbox{background:var(--bg2);border-radius:var(--radius-lg);border:0.5px solid var(--border2);padding:18px;width:90%;max-width:520px}
 .expbox .exptitle{font-size:13px;font-weight:500;margin-bottom:4px}
@@ -187,7 +188,26 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
     </div>
   </div>
 
-  <div class="stage" id="stage">
+  <!-- Outline panel -->
+  <div class="bgpanel">
+    <label>Outline</label>
+    <button class="mtab" id="outline-toggle" onclick="toggleOutline()">Off</button>
+    <div class="bgsep"></div>
+    <div id="outline-opts" style="display:none;align-items:center;gap:10px">
+      <div class="ctrl">
+        <label>Width</label>
+        <input type="range" min="1" max="20" value="2" step="1" id="osl" style="width:60px" oninput="onOutlineW(this.value)">
+        <span id="ov">2</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="position:relative;width:22px;height:22px;flex-shrink:0">
+          <div id="sw-outline" class="manual-swatch" style="background:#ffffff"></div>
+          <input type="text" id="outline-clr" class="coloris" value="#ffffff" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;padding:0;border:none;background:transparent">
+        </div>
+        <span id="hex-outline" class="hex-display">#ffffff</span>
+      </div>
+    </div>
+  </div>
     <div class="stage-bg" id="stage-bg"></div>
     <div class="draw-overlay" id="draw-overlay"
       onmousedown="drawStart(event)" onmousemove="drawMove(event)" onmouseup="drawEnd(event)"
@@ -214,8 +234,10 @@ input[type=range]{accent-color:var(--accent);cursor:pointer}
   <!-- Focal point modal -->
   <div class="modal" id="fmodal">
     <div class="mbox">
-      <div class="mhint">Click on the image to pin the focal point — crops will stay anchored here</div>
-      <div class="mimgwrap" id="mimgwrap" onclick="onFC(event)">
+      <div class="mhint">Drag the circle to set the focal point — crops stay anchored here</div>
+      <div class="mimgwrap" id="mimgwrap"
+           onmousedown="fpStart(event)" onmousemove="fpMove(event)" onmouseup="fpEnd(event)" onmouseleave="fpEnd(event)"
+           ontouchstart="fpStart(event)" ontouchmove="fpMove(event)" ontouchend="fpEnd(event)">
         <img id="mimg" src="" alt="">
         <div class="mfdot" id="mfdot"></div>
       </div>
@@ -252,6 +274,8 @@ const MAX_STAGE_H=Math.min(Math.max(500,window.innerHeight-200),900),PAD=0.04;
 
 let RW=1920,RH=1080,abX=0,abY=0,abW=0,abH=0;
 let imgs=[],cells=[],gap=12,seed=42,cornerR=0,fid=null;
+let outlineOn=false,outlineThickness=2,outlineColor='#ffffff';
+let fpDragging=false;
 let bgMode='solid',solidClr='#111111',gradA='#0a0a0a',gradB='#3a2a1a',gradDir='v',bgImgSrc=null;
 let drawMode=false,drawing=false,drawX0=0,drawY0=0,drawX1=0,drawY1=0;
 let lastDataURL='';
@@ -301,8 +325,10 @@ function drawEnd(e){
 
 // DIMENSIONS
 function setDimsFromRatio(){
+  const stageEl=document.getElementById('stage');
+  if(!stageEl){setTimeout(setDimsFromRatio,50);return;}
   const maxStageH=Math.min(Math.max(500,window.innerHeight-200),900);
-  const sw=document.getElementById('stage').offsetWidth||1200;
+  const sw=stageEl.offsetWidth||1200;
   let aw=Math.round(sw*(1-PAD*2)),ah=Math.round(aw*RH/RW);
   const maxAh=Math.round(maxStageH*(1-PAD*2));
   if(ah>maxAh){ah=maxAh;aw=Math.round(ah*RW/RH);}
@@ -334,6 +360,7 @@ function trigBgImg(){document.getElementById('bgup').click()}
 function loadBgImg(f){if(!f)return;const r=new FileReader();r.onload=e=>{bgImgSrc=e.target.result;document.getElementById('bgimgname').textContent=f.name;applyBg();};r.readAsDataURL(f)}
 function applyBg(){
   const el=document.getElementById('stage-bg');
+  if(!el)return;
   if(bgMode==='solid'){el.style.background=solidClr;el.style.backgroundImage='none';}
   else if(bgMode==='gradient'){el.style.background=`linear-gradient(${gradDir==='v'?'to bottom':'to right'},${gradA},${gradB})`;}
   else{if(bgImgSrc){el.style.backgroundImage=`url(${bgImgSrc})`;el.style.backgroundSize='cover';el.style.backgroundPosition='center';}else{el.style.background='#111';el.style.backgroundImage='none';}}
@@ -416,10 +443,13 @@ function render(){
   ai.querySelectorAll('.cell').forEach(e=>e.remove());
   document.getElementById('dz').style.display='none';
   const scale=abW/RW,cr=(cornerR*scale).toFixed(1);
+  const outlinePx=outlineOn?(outlineThickness*scale).toFixed(1):0;
+  const shadow=outlineOn?`inset 0 0 0 ${outlinePx}px ${outlineColor}`:'none';
   cells.forEach(c=>{
     if(!c.img)return;
     const d=document.createElement('div');d.className='cell';
-    d.style.cssText=`left:${c.x/RW*100}%;top:${c.y/RH*100}%;width:${c.w/RW*100}%;height:${c.h/RH*100}%;border-radius:${cr}px`;
+    d.dataset.imgId=c.img.id;
+    d.style.cssText=`left:${c.x/RW*100}%;top:${c.y/RH*100}%;width:${c.w/RW*100}%;height:${c.h/RH*100}%;border-radius:${cr}px;box-shadow:${shadow}`;
     const im=document.createElement('img');im.src=c.img.src;
     const fp=c.img.fp||{x:.5,y:.5};im.style.objectPosition=`${fp.x*100}% ${fp.y*100}%`;
     d.appendChild(im);ai.appendChild(d);
@@ -430,6 +460,7 @@ function render(){
 
 function makeTh(img){
   const th=document.createElement('div');th.className='th'+(img.main?' main':'');
+  th.dataset.imgId=img.id;
   const ie=document.createElement('img');ie.src=img.src;
   const fp=img.fp||{x:.5,y:.5};ie.style.objectPosition=`${fp.x*100}% ${fp.y*100}%`;
   const dot=document.createElement('div');dot.className='fdot';dot.style.left=`${fp.x*100}%`;dot.style.top=`${fp.y*100}%`;
@@ -467,6 +498,16 @@ function addFiles(files){
   });
 }
 
+function toggleOutline(){
+  outlineOn=!outlineOn;
+  const btn=document.getElementById('outline-toggle');
+  btn.textContent=outlineOn?'On':'Off';
+  btn.classList.toggle('on',outlineOn);
+  document.getElementById('outline-opts').style.display=outlineOn?'flex':'none';
+  if(imgs.length)render();
+}
+function onOutlineW(v){outlineThickness=+v;document.getElementById('ov').textContent=v;if(imgs.length)render()}
+
 function onRatio(k){const r=RATIOS[k];RW=r.w;RH=r.h;setDimsFromRatio();if(imgs.length)doLayout();}
 function onGap(v){gap=+v;document.getElementById('gv').textContent=v;if(imgs.length)doLayout()}
 function onCorner(v){cornerR=+v;document.getElementById('cv').textContent=v;if(imgs.length)render()}
@@ -490,13 +531,47 @@ function clearFocal(){
   const img=imgs.find(i=>i.id===fid);
   if(img){img.fp={x:.5,y:.5};document.getElementById('mfdot').style.display='none';doLayout();renderTray();}
 }
-function onFC(e){
-  if(!fid)return;
+function fpGetPos(e){
   const mi=document.getElementById('mimg'),ir=mi.getBoundingClientRect();
-  if(e.clientX<ir.left||e.clientX>ir.right||e.clientY<ir.top||e.clientY>ir.bottom)return;
-  const x=(e.clientX-ir.left)/ir.width,y=(e.clientY-ir.top)/ir.height;
+  const s=e.touches?e.touches[0]:e;
+  return{
+    x:Math.max(0,Math.min(1,(s.clientX-ir.left)/ir.width)),
+    y:Math.max(0,Math.min(1,(s.clientY-ir.top)/ir.height)),
+    ok:s.clientX>=ir.left&&s.clientX<=ir.right&&s.clientY>=ir.top&&s.clientY<=ir.bottom
+  };
+}
+function fpDotUpdate(x,y){
+  const fd=document.getElementById('mfdot');
+  fd.style.display='block';fd.style.left=x*100+'%';fd.style.top=y*100+'%';
+}
+function fpCellUpdate(imgId,x,y){
+  document.querySelectorAll('#artboard-inner .cell').forEach(c=>{
+    if(c.dataset.imgId==imgId){const im=c.querySelector('img');if(im)im.style.objectPosition=`${x*100}% ${y*100}%`;}
+  });
+  document.querySelectorAll('.th').forEach(th=>{
+    if(th.dataset.imgId==imgId){const im=th.querySelector('img');if(im)im.style.objectPosition=`${x*100}% ${y*100}%`;}
+  });
+}
+function fpStart(e){
+  if(!fid)return;
+  const pos=fpGetPos(e);if(!pos.ok)return;
+  fpDragging=true;
+  document.getElementById('mimgwrap').classList.add('dragging');
   const img=imgs.find(i=>i.id===fid);
-  if(img){img.fp={x,y};const fd=document.getElementById('mfdot');fd.style.display='block';fd.style.left=x*100+'%';fd.style.top=y*100+'%';doLayout();renderTray();}
+  if(img){img.fp={x:pos.x,y:pos.y};fpDotUpdate(pos.x,pos.y);fpCellUpdate(fid,pos.x,pos.y);}
+}
+function fpMove(e){
+  if(!fpDragging||!fid)return;
+  e.preventDefault();
+  const pos=fpGetPos(e);
+  const img=imgs.find(i=>i.id===fid);
+  if(img){img.fp={x:pos.x,y:pos.y};fpDotUpdate(pos.x,pos.y);fpCellUpdate(fid,pos.x,pos.y);}
+}
+function fpEnd(){
+  if(!fpDragging)return;
+  fpDragging=false;
+  document.getElementById('mimgwrap').classList.remove('dragging');
+  if(fid){doLayout();renderTray();}
 }
 
 function rrect(ctx,x,y,w,h,r){
@@ -518,7 +593,13 @@ function doExport(){
       if(ia>ca){sh=ih;sw=ih*ca;sx=Math.max(0,Math.min(iw-sw,fp.x*iw-sw/2));sy=0}
       else{sw=iw;sh=iw/ca;sx=0;sy=Math.max(0,Math.min(ih-sh,fp.y*ih-sh/2))}
       ctx.save();if(cornerR>0){rrect(ctx,c.x,c.y,cw,ch,cornerR);ctx.clip();}
-      ctx.drawImage(im,sx,sy,sw,sh,c.x,c.y,cw,ch);ctx.restore();res();
+      ctx.drawImage(im,sx,sy,sw,sh,c.x,c.y,cw,ch);
+      if(outlineOn&&outlineThickness>0){
+        if(cornerR>0){rrect(ctx,c.x,c.y,cw,ch,cornerR);}
+        else{ctx.beginPath();ctx.rect(c.x,c.y,cw,ch);}
+        ctx.strokeStyle=outlineColor;ctx.lineWidth=outlineThickness*2;ctx.stroke();
+      }
+      ctx.restore();res();
     };
     im.onerror=res;im.src=c.img.src;
   }))).then(()=>{
@@ -539,7 +620,7 @@ function trigDownload(){
 }
 
 window.addEventListener('resize',()=>{setDimsFromRatio();if(imgs.length)render();});
-setTimeout(()=>{setDimsFromRatio();applyBg();},0);
+setTimeout(()=>{setDimsFromRatio();applyBg();},50);
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@melloware/coloris@latest/dist/coloris.min.js"></script>
 <script>
@@ -565,11 +646,16 @@ Coloris({
       document.getElementById('sw-b').style.background = color;
       document.getElementById('hex-grad-b').textContent = color;
       applyBg();
+    } else if (input.id === 'outline-clr') {
+      outlineColor = color;
+      document.getElementById('sw-outline').style.background = color;
+      document.getElementById('hex-outline').textContent = color;
+      if (imgs.length) render();
     }
   }
 });
 // Fallback via native input events
-['solid-clr','grad-a','grad-b'].forEach(function(id) {
+['solid-clr','grad-a','grad-b','outline-clr'].forEach(function(id) {
   var el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('input', function() {
@@ -580,6 +666,11 @@ Coloris({
       document.getElementById('sw-solid').style.background=v;
       document.getElementById('hex-solid').textContent=v;
       applyBg();
+    } else if (id === 'outline-clr') {
+      outlineColor=v;
+      document.getElementById('sw-outline').style.background=v;
+      document.getElementById('hex-outline').textContent=v;
+      if(imgs.length)render();
     } else {
       gradA=document.getElementById('grad-a').value;
       gradB=document.getElementById('grad-b').value;
